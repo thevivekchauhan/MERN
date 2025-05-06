@@ -4,7 +4,6 @@ import { store } from './store/store';
 import { ThemeProvider, createTheme } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import AdminDashboard from './components/dashboard/AdminDashboard';
