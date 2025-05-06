@@ -10,7 +10,6 @@ import AdminDashboard from './components/dashboard/AdminDashboard';
 import EmployeeDashboard from './components/dashboard/EmployeeDashboard';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import CollaborationPage from './components/dashboard/admin/CollaborationPage';
-
 const theme = createTheme({
   palette: {
     primary: {
