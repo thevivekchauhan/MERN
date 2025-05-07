@@ -69,6 +69,11 @@ const ProjectsSection = () => {
       console.log('Fetched projects:', response);
       if (response.success && response.projects) {
         setProjects(response.projects);
+      } else if (Array.isArray(response)) {
+        // Handle case where response is direct array of projects
+        setProjects(response);
+      } else {
+        setProjects([]);
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -77,6 +82,7 @@ const ProjectsSection = () => {
         message: 'Failed to fetch projects',
         severity: 'error'
       });
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -144,9 +150,13 @@ const ProjectsSection = () => {
     try {
       setLoading(true);
       const response = await projectApi.createProject(newProject);
+      console.log('Create project response:', response);
       
-      if (response && response.project) {
-        await fetchProjects();
+      if (response && (response.project || response.success)) {
+        // Add the new project to the projects array
+        const createdProject = response.project || response;
+        setProjects(prevProjects => [createdProject, ...prevProjects]);
+        
         setOpenNewProject(false);
         setNewProject({
           name: '',
