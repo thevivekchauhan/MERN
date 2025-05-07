@@ -18,7 +18,6 @@ const TaskStatusChart = ({ tasks }) => {
   const [chartType, setChartType] = useState('pie');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   // Calculate task status counts
   const statusCounts = tasks.reduce((acc, task) => {
@@ -142,7 +141,7 @@ const TaskStatusChart = ({ tasks }) => {
             fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.4rem' }
           }}
         >
-          Overview
+          Task Overview
         </Typography>
         <ToggleButtonGroup
           value={chartType}
@@ -177,7 +176,9 @@ const TaskStatusChart = ({ tasks }) => {
         justifyContent: 'center',
         position: 'relative'
       }}>
-        {chartType === 'pie' ? (
+        {tasks.length === 0 ? (
+          <Typography color="text.secondary">No tasks available</Typography>
+        ) : chartType === 'pie' ? (
           <Pie data={chartData} options={options} />
         ) : (
           <Bar data={chartData} options={barOptions} />

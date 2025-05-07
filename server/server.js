@@ -4,6 +4,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./route/authRoutes');
 const projectRoutes = require('./route/projectRoutes');
+const taskRoutes = require('./route/taskRoutes');
+const recentTaskRoutes = require('./route/recentTaskRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +37,8 @@ mongoose.connect(process.env.MONGODB_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/recent-tasks', recentTaskRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

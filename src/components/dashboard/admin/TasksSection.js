@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -30,6 +30,8 @@ import {
   useTheme,
   useMediaQuery,
   Grid,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Edit,
@@ -43,68 +45,55 @@ import { format } from 'date-fns';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import ActivityTimeline from './ActivityTimeline';
+import { recentTaskApi } from '../../../services/api';
 import TaskStatusChart from './TaskStatusChart';
-
-const recentTasks = [
-  {
-    id: 1,
-    title: 'Update User Interface',
-    assignedTo: 'Vanraj',
-    status: 'In Progress',
-    priority: 'High',
-    dueDate: '2025-05-10',
-    project: 'Website Redesign'
-  },
-  {
-    id: 2,
-    title: 'Database Optimization',
-    assignedTo: 'Parth',
-    status: 'To Do',
-    priority: 'Medium',
-    dueDate: '2025-05-15',
-    project: 'Database Migration'
-  },
-  {
-    id: 3,
-    title: 'Security Testing',
-    assignedTo: 'Gaurav',
-    status: 'Done',
-    priority: 'High',
-    dueDate: '2025-04-30',
-    project: 'Security Audit'
-  },
-  {
-    id: 4,
-    title: 'Mobile App Testing',
-    assignedTo: 'Pruthvi',
-    status: 'In Progress',
-    priority: 'Low',
-    dueDate: '2025-05-05',
-    project: 'Mobile App Development'
-  },
-  {
-    id: 5,
-    title: 'Content Migration',
-    assignedTo: 'Prabhat',
-    status: 'To Do',
-    priority: 'Medium',
-    dueDate: '2025-05-20',
-    project: 'Website Redesign'
-  }
-];
+import ActivityTimeline from './ActivityTimeline';
 
 const TasksSection = ({ projects }) => {
+  const [tasks, setTasks] = useState([]);
   const [taskFilter, setTaskFilter] = useState({
     priority: 'all',
     status: 'all'
   });
   const [editTask, setEditTask] = useState(null);
   const [deleteTask, setDeleteTask] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await recentTaskApi.getAllRecentTasks();
+      if (response.success && response.tasks) {
+        setTasks(response.tasks);
+      } else if (Array.isArray(response)) {
+        setTasks(response);
+      } else {
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch tasks',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -125,7 +114,7 @@ const TasksSection = ({ projects }) => {
   };
 
   const getFilteredTasks = () => {
-    return recentTasks.filter(task => {
+    return tasks.filter(task => {
       const matchesPriority = taskFilter.priority === 'all' || task.priority === taskFilter.priority;
       const matchesStatus = taskFilter.status === 'all' || task.status === taskFilter.status;
       return matchesPriority && matchesStatus;
@@ -140,16 +129,50 @@ const TasksSection = ({ projects }) => {
     setDeleteTask(task);
   };
 
-  const handleSaveTask = () => {
-    // Implement save task logic here
-    setEditTask(null);
-    // Show success message
+  const handleSaveTask = async () => {
+    try {
+      setLoading(true);
+      await recentTaskApi.updateRecentTask(editTask._id, editTask);
+      await fetchTasks();
+      setEditTask(null);
+      setSnackbar({
+        open: true,
+        message: 'Task updated successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error updating task:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update task',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleConfirmDeleteTask = () => {
-    // Implement delete task logic here
-    setDeleteTask(null);
-    // Show success message
+  const handleConfirmDeleteTask = async () => {
+    try {
+      setLoading(true);
+      await recentTaskApi.deleteRecentTask(deleteTask._id);
+      await fetchTasks();
+      setDeleteTask(null);
+      setSnackbar({
+        open: true,
+        message: 'Task deleted successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete task',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -275,7 +298,7 @@ const TasksSection = ({ projects }) => {
             <TableBody>
               {getFilteredTasks().map((task) => (
                 <TableRow
-                  key={task.id}
+                  key={task._id}
                   sx={{
                     '&:hover': {
                       backgroundColor: '#f8f9fa',
@@ -365,7 +388,7 @@ const TasksSection = ({ projects }) => {
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
-                          onClick={() => navigate(`/admin/tasks/${task.id}`)}
+                          onClick={() => navigate(`/admin/tasks/${task._id}`)}
                           sx={{ color: theme.palette.info.main }}
                         >
                           <Visibility fontSize="small" />
@@ -551,6 +574,20 @@ const TasksSection = ({ projects }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Box,
@@ -20,6 +20,8 @@ import {
   useTheme,
   useMediaQuery,
   Divider,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Assignment,
@@ -30,58 +32,58 @@ import {
   Edit,
   Delete,
 } from '@mui/icons-material';
+import { taskApi } from '../../../services/api';
 
 const Tasks = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: 'Update user documentation',
-      description: 'Update the user documentation with new features and improvements',
-      status: 'completed',
-      priority: 'high',
-      deadline: '2024-05-01',
-      project: 'Website Redesign',
-      comments: [
-        { id: 1, text: 'Started working on the documentation', date: '2024-04-25' },
-        { id: 2, text: 'Completed the first draft', date: '2024-04-28' },
-      ],
-    },
-    {
-      id: 2,
-      title: 'Implement new feature',
-      description: 'Implement the new user authentication feature',
-      status: 'pending',
-      priority: 'medium',
-      deadline: '2024-05-05',
-      project: 'Mobile App',
-      comments: [
-        { id: 1, text: 'Started implementation', date: '2024-04-26' },
-      ],
-    },
-    {
-      id: 3,
-      title: 'Bug fixes for login page',
-      description: 'Fix the reported bugs in the login page',
-      status: 'overdue',
-      priority: 'high',
-      deadline: '2024-04-28',
-      project: 'Website Redesign',
-      comments: [],
-    },
-  ]);
-
+  const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await taskApi.getAllTasks();
+      if (response.success && response.tasks) {
+        setTasks(response.tasks);
+      } else if (Array.isArray(response)) {
+        setTasks(response);
+      } else {
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch tasks',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'Done':
       case 'completed':
         return 'success';
+      case 'In Progress':
       case 'pending':
         return 'warning';
+      case 'To Do':
       case 'overdue':
         return 'error';
       default:
@@ -90,7 +92,7 @@ const Tasks = () => {
   };
 
   const getPriorityColor = (priority) => {
-    switch (priority) {
+    switch (priority?.toLowerCase()) {
       case 'high':
         return 'error';
       case 'medium':
@@ -102,26 +104,58 @@ const Tasks = () => {
     }
   };
 
-  const handleStatusChange = (taskId, newStatus) => {
-    setTasks(tasks.map(task =>
-      task.id === taskId ? { ...task, status: newStatus } : task
-    ));
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      setLoading(true);
+      await taskApi.updateTask(taskId, { status: newStatus });
+      await fetchTasks();
+      setSnackbar({
+        open: true,
+        message: 'Task status updated successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update task status',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (newComment.trim() && selectedTask) {
-      const comment = {
-        id: Date.now(),
-        text: newComment,
-        date: new Date().toISOString().split('T')[0],
-      };
-      setTasks(tasks.map(task =>
-        task.id === selectedTask.id
-          ? { ...task, comments: [...task.comments, comment] }
-          : task
-      ));
-      setNewComment('');
-      setCommentDialogOpen(false);
+      try {
+        setLoading(true);
+        const updatedComments = [
+          ...(selectedTask.comments || []),
+          {
+            text: newComment,
+            date: new Date().toISOString(),
+          }
+        ];
+        await taskApi.updateTask(selectedTask._id, { comments: updatedComments });
+        await fetchTasks();
+        setNewComment('');
+        setCommentDialogOpen(false);
+        setSnackbar({
+          open: true,
+          message: 'Comment added successfully',
+          severity: 'success'
+        });
+      } catch (error) {
+        console.error('Error adding comment:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to add comment',
+          severity: 'error'
+        });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -152,7 +186,7 @@ const Tasks = () => {
                 {task.title}
               </Typography>
             }
-            secondary={`Project: ${task.project} • Due: ${task.deadline}`}
+            secondary={`Project: ${task.project} • Due: ${new Date(task.dueDate).toLocaleDateString()}`}
           />
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Chip
@@ -183,13 +217,13 @@ const Tasks = () => {
               }}
               startIcon={<Comment />}
             >
-              Comments ({task.comments.length})
+              Comments ({task.comments?.length || 0})
             </Button>
             <Button
               size="small"
               variant="outlined"
               color="primary"
-              onClick={() => handleStatusChange(task.id, 'completed')}
+              onClick={() => handleStatusChange(task._id, 'Done')}
               startIcon={<CheckCircle />}
             >
               Mark Complete
@@ -221,7 +255,7 @@ const Tasks = () => {
 
         <List>
           {tasks.map((task) => (
-            <TaskItem key={task.id} task={task} />
+            <TaskItem key={task._id} task={task} />
           ))}
         </List>
 
@@ -236,11 +270,11 @@ const Tasks = () => {
           </DialogTitle>
           <DialogContent>
             <List>
-              {selectedTask?.comments.map((comment) => (
-                <ListItem key={comment.id}>
+              {selectedTask?.comments?.map((comment, index) => (
+                <ListItem key={index}>
                   <ListItemText
                     primary={comment.text}
-                    secondary={comment.date}
+                    secondary={new Date(comment.date).toLocaleString()}
                   />
                 </ListItem>
               ))}
@@ -266,9 +300,23 @@ const Tasks = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </motion.div>
     </Box>
   );
 };
 
-export default Tasks; 
+export default Tasks;
