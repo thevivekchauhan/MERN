@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -23,6 +23,8 @@ import {
   TextField,
   useTheme,
   LinearProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -31,72 +33,54 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import axios from 'axios';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-
-const latestProjects = [
-  {
-    id: 1,
-    name: 'Website Redesign',
-    progress: 75,
-    startDate: '2025-04-01',
-    endDate: '2025-05-15',
-    status: 'Active',
-    description: 'Complete overhaul of company website',
-  },
-  {
-    id: 2,
-    name: 'Mobile App Development',
-    progress: 90,
-    startDate: '2025-03-15',
-    endDate: '2025-04-30',
-    status: 'Completed',
-    description: 'New mobile app for customers',
-  },
-  {
-    id: 3,
-    name: 'Database Migration',
-    progress: 45,
-    startDate: '2025-04-10',
-    endDate: '2025-05-20',
-    status: 'Active',
-    description: 'Migrate to new cloud database',
-  },
-  {
-    id: 4,
-    name: 'Security Audit',
-    progress: 60,
-    startDate: '2025-04-05',
-    endDate: '2025-05-05',
-    status: 'Active',
-    description: 'Annual security assessment',
-  },
-  {
-    id: 5,
-    name: 'UI/UX Improvements',
-    progress: 100,
-    startDate: '2025-03-01',
-    endDate: '2025-04-15',
-    status: 'Completed',
-    description: 'User interface enhancements',
-  },
-];
+import { projectApi } from '../../../services/api';
 
 const ProjectsSection = () => {
+  const [projects, setProjects] = useState([]);
   const [editProject, setEditProject] = useState(null);
   const [deleteProject, setDeleteProject] = useState(null);
   const [openNewProject, setOpenNewProject] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [newProject, setNewProject] = useState({
     name: '',
     startDate: new Date(),
     endDate: new Date(),
     description: '',
+    progress: 0,
+    status: 'Active'
   });
   
   const theme = useTheme();
   const navigate = useNavigate();
+
+  // Fetch projects when component mounts
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const response = await projectApi.getAllProjects();
+      console.log('Fetched projects:', response);
+      if (response.success && response.projects) {
+        setProjects(response.projects);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch projects',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditProject = (project) => {
     setEditProject(project);
@@ -106,62 +90,89 @@ const ProjectsSection = () => {
     setDeleteProject(project);
   };
 
-  const handleConfirmDelete = () => {
-    // Implement delete logic here
-    setDeleteProject(null);
-    // Show success message
+  const handleConfirmDelete = async () => {
+    try {
+      setLoading(true);
+      await projectApi.deleteProject(deleteProject._id);
+      await fetchProjects();
+      setDeleteProject(null);
+      setSnackbar({
+        open: true,
+        message: 'Project deleted successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete project',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveEdit = () => {
-    // Implement save logic here
-    setEditProject(null);
-    // Show success message
+  const handleSaveEdit = async () => {
+    try {
+      setLoading(true);
+      await projectApi.updateProject(editProject._id, editProject);
+      await fetchProjects();
+      setEditProject(null);
+      setSnackbar({
+        open: true,
+        message: 'Project updated successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update project',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNewProject = () => {
     setOpenNewProject(true);
   };
 
-  const handleSaveNewProject = () => {
-    // Implement save new project logic here
-    setOpenNewProject(false);
-    setNewProject({
-      name: '',
-      startDate: new Date(),
-      endDate: new Date(),
-      description: '',
-    });
-    // Show success message
-  };
-
-  const handleSaveNewProject1 = async () => {
+  const handleSaveNewProject = async () => {
     try {
-      const payload = {
-        name: newProject.name,
-        description: newProject.description,
-        startDate: newProject.startDate,
-        endDate: newProject.endDate,
-        progress: 0, // You can add a field in form to set this
-        status: 'Active', // Or use a dropdown if needed
-      };
-  
-      await axios.post('http://localhost:5000/api/projects', payload);
-
-        // Reset form and close dialog
-    setOpenNewProject(false);
-    setNewProject({
-      name: '',
-      startDate: new Date(),
-      endDate: new Date(),
-      description: '',
-    });
-     // Optionally: Fetch latest projects again here
-    // Show success toast/snackbar
-    console.log('Project created successfully!');
-  } catch (err) {
-    console.error('Error creating project', err);
-  }
-};
+      setLoading(true);
+      const response = await projectApi.createProject(newProject);
+      
+      if (response && response.project) {
+        await fetchProjects();
+        setOpenNewProject(false);
+        setNewProject({
+          name: '',
+          startDate: new Date(),
+          endDate: new Date(),
+          description: '',
+          progress: 0,
+          status: 'Active'
+        });
+        setSnackbar({
+          open: true,
+          message: 'Project created successfully',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to create project',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Box id="projects" sx={{ mt: 6, scrollMarginTop: '64px' }}>
@@ -181,6 +192,8 @@ const ProjectsSection = () => {
           New Project
         </Button>
       </Box>
+
+      {loading && <LinearProgress sx={{ mb: 2 }} />}
 
       <TableContainer
         component={Paper}
@@ -202,9 +215,9 @@ const ProjectsSection = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {latestProjects.map((project) => (
+            {projects.map((project) => (
               <TableRow
-                key={project.id}
+                key={project._id}
                 sx={{
                   '&:hover': {
                     backgroundColor: '#f8f9fa',
@@ -255,7 +268,7 @@ const ProjectsSection = () => {
                     <Tooltip title="View Details">
                       <IconButton
                         size="small"
-                        onClick={() => navigate(`/admin/projects/${project.id}`)}
+                        onClick={() => navigate(`/admin/projects/${project._id}`)}
                         sx={{ color: theme.palette.info.main }}
                       >
                         <Visibility fontSize="small" />
@@ -318,6 +331,14 @@ const ProjectsSection = () => {
               value={editProject?.description || ''}
               onChange={(e) => setEditProject({ ...editProject, description: e.target.value })}
             />
+            <TextField
+              fullWidth
+              type="number"
+              label="Progress"
+              value={editProject?.progress || 0}
+              onChange={(e) => setEditProject({ ...editProject, progress: Number(e.target.value) })}
+              inputProps={{ min: 0, max: 100 }}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -373,13 +394,36 @@ const ProjectsSection = () => {
               value={newProject.description}
               onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
             />
+            <TextField
+              fullWidth
+              type="number"
+              label="Progress"
+              value={newProject.progress}
+              onChange={(e) => setNewProject({ ...newProject, progress: Number(e.target.value) })}
+              inputProps={{ min: 0, max: 100 }}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenNewProject(false)}>Cancel</Button>
-          <Button onClick={handleSaveNewProject1} variant="contained">Create Project</Button>
+          <Button onClick={handleSaveNewProject} variant="contained">Create Project</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

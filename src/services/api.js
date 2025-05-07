@@ -18,20 +18,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Log requests and responses for debugging
-api.interceptors.request.use(request => {
-  console.log('Starting Request:', request);
-  return request;
-});
-
-api.interceptors.response.use(response => {
-  console.log('Response:', response);
-  return response;
-}, error => {
-  console.error('Response Error:', error);
-  return Promise.reject(error);
-});
-
 export const authApi = {
   register: async (userData) => {
     const response = await api.post('/auth/register', userData);
@@ -49,7 +35,7 @@ export const projectApi = {
     try {
       console.log('Fetching all projects...');
       const response = await api.get('/projects');
-      console.log('Projects fetched:', response.data);
+      console.log('Projects response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -61,7 +47,7 @@ export const projectApi = {
     try {
       console.log('Creating project with data:', projectData);
       const response = await api.post('/projects', projectData);
-      console.log('Project created:', response.data);
+      console.log('Create project response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error creating project:', error);
@@ -71,7 +57,9 @@ export const projectApi = {
 
   updateProject: async (id, projectData) => {
     try {
+      console.log('Updating project:', id, projectData);
       const response = await api.put(`/projects/${id}`, projectData);
+      console.log('Update project response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error updating project:', error);
@@ -81,7 +69,9 @@ export const projectApi = {
 
   deleteProject: async (id) => {
     try {
+      console.log('Deleting project:', id);
       const response = await api.delete(`/projects/${id}`);
+      console.log('Delete project response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error deleting project:', error);
