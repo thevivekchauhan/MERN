@@ -31,6 +31,7 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import axios from 'axios';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -132,6 +133,35 @@ const ProjectsSection = () => {
     });
     // Show success message
   };
+
+  const handleSaveNewProject1 = async () => {
+    try {
+      const payload = {
+        name: newProject.name,
+        description: newProject.description,
+        startDate: newProject.startDate,
+        endDate: newProject.endDate,
+        progress: 0, // You can add a field in form to set this
+        status: 'Active', // Or use a dropdown if needed
+      };
+  
+      await axios.post('http://localhost:5000/api/projects', payload);
+
+        // Reset form and close dialog
+    setOpenNewProject(false);
+    setNewProject({
+      name: '',
+      startDate: new Date(),
+      endDate: new Date(),
+      description: '',
+    });
+     // Optionally: Fetch latest projects again here
+    // Show success toast/snackbar
+    console.log('Project created successfully!');
+  } catch (err) {
+    console.error('Error creating project', err);
+  }
+};
 
   return (
     <Box id="projects" sx={{ mt: 6, scrollMarginTop: '64px' }}>
@@ -347,7 +377,7 @@ const ProjectsSection = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenNewProject(false)}>Cancel</Button>
-          <Button onClick={handleSaveNewProject} variant="contained">Create Project</Button>
+          <Button onClick={handleSaveNewProject1} variant="contained">Create Project</Button>
         </DialogActions>
       </Dialog>
     </Box>

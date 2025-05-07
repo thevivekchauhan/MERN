@@ -8,7 +8,7 @@ exports.protect = async (req, res, next) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'Not authorized to access this route' });
     }
-
+    
     const token = authHeader.split(' ')[1];
 
     // Verify token

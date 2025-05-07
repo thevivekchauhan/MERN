@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Box,
@@ -7,62 +7,110 @@ import {
   Typography,
   Chip,
   Button,
-  Avatar,
-  AvatarGroup,
-  LinearProgress,
-  useTheme,
-  useMediaQuery,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Snackbar,
+  Alert,
+  LinearProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
   CalendarToday,
-  Group,
   ArrowForward,
-  Star,
   StarBorder,
 } from '@mui/icons-material';
+import { projectApi } from '../../../services/api';
 
 const Projects = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const [projects, setProjects] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [newProject, setNewProject] = useState({
+    name: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    progress: 0,
+    status: 'Active'
+  });
 
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      title: 'Website Redesign',
-      description: 'Complete overhaul of the company website with modern design and improved UX',
-      progress: 75,
-      deadline: '2024-06-15',
-      team: ['JD', 'AB', 'CD', 'EF'],
-      status: 'In Progress',
-      priority: 'High',
-      tasks: { total: 24, completed: 18 },
-    },
-    {
-      id: 2,
-      title: 'Mobile App Development',
-      description: 'Development of a new mobile application for iOS and Android platforms',
-      progress: 45,
-      deadline: '2024-07-30',
-      team: ['JD', 'GH', 'IJ'],
-      status: 'In Progress',
-      priority: 'Medium',
-      tasks: { total: 36, completed: 16 },
-    },
-    {
-      id: 3,
-      title: 'Database Migration',
-      description: 'Migration of legacy database to new cloud-based solution',
-      progress: 90,
-      deadline: '2024-05-20',
-      team: ['JD', 'KL', 'MN'],
-      status: 'Almost Done',
-      priority: 'High',
-      tasks: { total: 12, completed: 11 },
-    },
-  ]);
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const data = await projectApi.getAllProjects();
+      setProjects(data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch projects',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateProject = async () => {
+    try {
+      setLoading(true);
+      // Convert progress to number if it's a string
+      const projectData = {
+        ...newProject,
+        progress: Number(newProject.progress)
+      };
+      console.log('Sending project data:', projectData);
+      const response = await projectApi.createProject(projectData);
+      
+      // Check if the response has the expected structure
+      if (response && response.project) {
+        setProjects(prevProjects => [response.project, ...prevProjects]);
+        setOpenDialog(false);
+        setNewProject({
+          name: '',
+          description: '',
+          startDate: '',
+          endDate: '',
+          progress: 0,
+          status: 'Active'
+        });
+        setSnackbar({
+          open: true,
+          message: 'Project created successfully',
+          severity: 'success'
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to create project',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewProject(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const ProjectCard = ({ project }) => (
     <motion.div
@@ -86,7 +134,7 @@ const Projects = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-              {project.title}
+              {project.name}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {project.description}
@@ -101,18 +149,14 @@ const Projects = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
             <CalendarToday sx={{ fontSize: 16, color: 'text.secondary', mr: 1 }} />
             <Typography variant="body2" color="text.secondary">
-              Due: {project.deadline}
+              Start: {new Date(project.startDate).toLocaleDateString()}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Group sx={{ fontSize: 16, color: 'text.secondary', mr: 1 }} />
-            <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: '0.75rem' } }}>
-              {project.team.map((member, index) => (
-                <Avatar key={index} sx={{ bgcolor: theme.palette.primary.main }}>
-                  {member}
-                </Avatar>
-              ))}
-            </AvatarGroup>
+            <CalendarToday sx={{ fontSize: 16, color: 'text.secondary', mr: 1 }} />
+            <Typography variant="body2" color="text.secondary">
+              Due: {new Date(project.endDate).toLocaleDateString()}
+            </Typography>
           </Box>
         </Box>
 
@@ -131,7 +175,7 @@ const Projects = () => {
             sx={{
               height: 6,
               borderRadius: 3,
-              bgcolor: `${theme.palette.primary.main}15`,
+              bgcolor: 'rgba(0,0,0,0.08)',
               '& .MuiLinearProgress-bar': {
                 borderRadius: 3,
               },
@@ -140,19 +184,11 @@ const Projects = () => {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Chip
-              label={project.status}
-              size="small"
-              color={project.status === 'Almost Done' ? 'success' : 'primary'}
-              sx={{ mr: 1 }}
-            />
-            <Chip
-              label={project.priority}
-              size="small"
-              color={project.priority === 'High' ? 'error' : 'warning'}
-            />
-          </Box>
+          <Chip
+            label={project.status}
+            size="small"
+            color={project.status === 'Completed' ? 'success' : 'primary'}
+          />
           <Button
             size="small"
             endIcon={<ArrowForward />}
@@ -166,7 +202,7 @@ const Projects = () => {
   );
 
   return (
-    <Box sx={{ p: isMobile ? 1 : 3 }}>
+    <Box sx={{ p: 3 }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -184,6 +220,7 @@ const Projects = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
+            onClick={() => setOpenDialog(true)}
             sx={{
               borderRadius: 2,
               textTransform: 'none',
@@ -194,16 +231,120 @@ const Projects = () => {
           </Button>
         </Box>
 
+        {loading && <LinearProgress sx={{ mb: 2 }} />}
+
         <Grid container spacing={3}>
           {projects.map((project) => (
-            <Grid item xs={12} md={6} lg={4} key={project.id}>
+            <Grid item xs={12} md={6} lg={4} key={project._id}>
               <ProjectCard project={project} />
             </Grid>
           ))}
+          {!loading && projects.length === 0 && (
+            <Grid item xs={12}>
+              <Typography variant="body1" color="text.secondary" align="center">
+                No projects found. Create a new project to get started.
+              </Typography>
+            </Grid>
+          )}
         </Grid>
       </motion.div>
+
+      {/* Create Project Dialog */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create New Project</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Project Name"
+              name="name"
+              value={newProject.name}
+              onChange={handleInputChange}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              name="description"
+              value={newProject.description}
+              onChange={handleInputChange}
+              margin="normal"
+              multiline
+              rows={3}
+            />
+            <TextField
+              fullWidth
+              label="Start Date"
+              name="startDate"
+              type="date"
+              value={newProject.startDate}
+              onChange={handleInputChange}
+              margin="normal"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              label="End Date"
+              name="endDate"
+              type="date"
+              value={newProject.endDate}
+              onChange={handleInputChange}
+              margin="normal"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              label="Progress"
+              name="progress"
+              type="number"
+              value={newProject.progress}
+              onChange={handleInputChange}
+              margin="normal"
+              inputProps={{ min: 0, max: 100 }}
+            />
+            <TextField
+              fullWidth
+              label="Status"
+              name="status"
+              value={newProject.status}
+              onChange={handleInputChange}
+              margin="normal"
+              select
+            >
+              <MenuItem value="Active">Active</MenuItem>
+              <MenuItem value="Completed">Completed</MenuItem>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleCreateProject} 
+            variant="contained" 
+            disabled={loading || !newProject.name}
+          >
+            Create Project
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
 
-export default Projects; 
+export default Projects;
